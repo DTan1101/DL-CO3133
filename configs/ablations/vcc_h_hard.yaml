@@ -1,0 +1,7 @@
+# Ablation: ngưỡng cứng kiểu FixMatch, h(c) = 1[c ≥ τ].
+_base_: ../e6_vcc.yaml
+name: abl_vcc_h_hard
+loss:
+  consistency:
+    gate:
+      confidence: {kind: hard, source: true_class, tau: 0.8}

@@ -1,0 +1,7 @@
+# Ablation: D = MSE. Theo Nhận xét ở Mục 5.1, MSE cho gradient biến mất khi q bão hoà.
+_base_: ../e6_vcc.yaml
+name: abl_vcc_div_mse
+loss:
+  consistency:
+    divergence: mse
+    lambda: 4.0            # MSE có thang độ nhỏ hơn KL nên cần λ lớn hơn

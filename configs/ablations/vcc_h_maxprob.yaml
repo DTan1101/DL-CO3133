@@ -1,0 +1,7 @@
+# Ablation: h(c) với c = max_k p_k thay vì c = p_y (không dùng nhãn).
+_base_: ../e6_vcc.yaml
+name: abl_vcc_h_maxprob
+loss:
+  consistency:
+    gate:
+      confidence: {kind: linear, source: max_prob}

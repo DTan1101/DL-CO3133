@@ -1,0 +1,6 @@
+# Ablation: tô vật che bằng kết cấu lấy từ chính ảnh thay vì màu trung bình.
+_base_: ../e6_vcc.yaml
+name: abl_vcc_occ_texture
+data:
+  occlusion:
+    fill: texture

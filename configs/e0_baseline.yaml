@@ -1,0 +1,13 @@
+# E0 -- Mức cơ sở: ResNet18 + cross-entropy, không che khuất khi huấn luyện.
+# Vẫn được đánh giá trên đúng các tập test bị che như mọi thí nghiệm khác.
+_base_: _base_.yaml
+name: e0_baseline
+
+data:
+  occlusion:
+    enabled: false
+
+loss:
+  ce_branch: clean
+  consistency:
+    enabled: false

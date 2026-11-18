@@ -1,0 +1,126 @@
+# Cấu hình nền dùng chung cho mọi thí nghiệm (E0--E6).
+# Mỗi thí nghiệm là một file YAML kế thừa file này qua khoá `_base_`
+# và chỉ ghi đè cặp (trọng số w, đích t) của riêng nó.
+name: base
+
+data:
+  root: datasets/Oxford-IIIT_Pet_Dataset
+  split_dir: null                 # mặc định <root>/splits
+  val_ratio: 0.2                  # trainval chia 80/20 theo lớp
+  split_seed: 0
+  num_classes: 37
+  img_size: 224
+  eval_seed: 12345                # hạt giống cố định cho che khuất khi đánh giá
+  return_masks: false             # chỉ bật khi dùng mức nhìn thấy ngữ nghĩa
+  foreground:
+    values: [1]                   # trimap: 1=tiền cảnh, 2=nền, 3=biên/mơ hồ
+  augment:
+    random_resized_crop: true
+    scale: [0.65, 1.0]
+    ratio: [0.75, 1.3333]
+    hflip: 0.5
+    color_jitter: 0.0
+    resize_ratio: 1.14            # resize rồi center-crop khi đánh giá
+  occlusion:                      # che khuất KHI HUẤN LUYỆN
+    enabled: true
+    strategy: foreground_coverage # foreground_coverage | random_erasing
+    shape: mixed                  # rect | blob | mixed
+    fill: mean                    # mean | gray | noise | texture
+    rho_range: [0.0, 0.8]         # ρ ~ U[0; 0,8] trên tiền cảnh
+    prob: 1.0
+    max_shapes: 4
+    tolerance: 0.03
+    blob_grid: 8
+    shape_ratio: [0.4, 2.5]
+    erase_area: [0.02, 0.4]       # tham số Random Erasing (chỉ dùng cho E1)
+    erase_ratio: [0.3, 3.3]
+  loader:
+    batch_size: 64                # 64 ảnh gốc + 64 ảnh che = batch 2B
+    eval_batch_size: 128
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+    drop_last: true
+
+model:
+  backbone: resnet18              # xem configs/backbones/ để đổi backbone
+  pretrained: true                # tiền huấn luyện ImageNet
+  dropout: 0.0
+  drop_path_rate: 0.0
+  split_bn: false                 # true -> mỗi nhánh có thống kê BN riêng (ablation)
+  num_splits: 2
+  prefer_timm: true
+
+train:
+  epochs: 30
+  seeds: [0, 1, 2]                # 3 hạt giống, báo cáo trung bình ± độ lệch chuẩn
+  device: auto
+  amp: true
+  deterministic: false
+  grad_clip: 1.0
+  log_every: 20
+  eval_every: 1
+  early_stop_patience: 0
+  monitor: top1_mean              # chọn checkpoint theo Top-1 trung bình trên val ở mọi ρ
+  monitor_mode: max
+  resume: null
+  optimizer:
+    name: adamw
+    lr: 0.0001
+    weight_decay: 0.05
+    head_lr_mult: 10.0
+    betas: [0.9, 0.999]
+  scheduler:
+    name: cosine
+    warmup_epochs: 1
+    min_lr_ratio: 0.01
+  rampup:                         # dùng CHUNG cho mọi phương pháp để so sánh công bằng
+    kind: sigmoid
+    epochs: 5
+
+# L = CE(z, y) + λ(t) · (1/B) Σ w_i · D(t_i ‖ q_i)
+loss:
+  ce_branch: clean                # clean | occ | both
+  label_smoothing: 0.0
+  visibility_source: pixel        # pixel | semantic (v_sem có trọng số CAM)
+  consistency:
+    enabled: false
+    lambda: 1.0
+    divergence: kl                # kl | ce | js | mse
+    reduction: mean               # mean | weighted (Σ wD / Σ w)
+    target:
+      kind: pred                  # pred | vcc | soft_aug | vcc_temp | onehot
+      k: 2.0                      # α(v) = 1 - (1-v)^k
+      prior: uniform              # uniform | class_freq
+      teacher_temperature: 1.0    # hiệu chỉnh p trước khi trộn
+      t_max: 4.0                  # chỉ dùng cho kind=vcc_temp
+    gate:
+      combine: product            # product | min
+      visibility:                 # g(v)
+        kind: none                # none | linear | poly | hard | sigmoid
+        k: 2.0
+        v0: 0.5
+        tau: 0.1
+      confidence:                 # h(c)
+        kind: none                # none | linear | power | hard | softmatch
+        source: true_class        # true_class (c = p_y) | max_prob
+        tau: 0.8
+        mu: 0.7
+        sigma: 0.2
+        power: 2.0
+
+eval:
+  split: test
+  rhos: [0.0, 0.1, 0.3, 0.5, 0.7]   # các tập test bị che có kiểm soát
+  val_rhos: [0.0, 0.3, 0.7]
+  ece_bins: 15
+  final_sweep: true
+  occlusion:                        # giao thức test GIỐNG NHAU cho mọi thí nghiệm
+    strategy: foreground_coverage
+    shape: blob                     # ngưỡng phân vị -> che đúng tỷ lệ ρ của tiền cảnh
+    fill: mean
+    tolerance: 0.01
+
+output:
+  root: checkpoints

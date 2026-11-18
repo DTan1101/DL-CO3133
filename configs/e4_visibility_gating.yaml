@@ -1,0 +1,17 @@
+# E4 -- Visibility-gating:  w = g(v),  t = p.
+# g(v) = 1 - (1-v)^2 (dạng của Soft Augmentation với p_min = 0).
+_base_: _base_.yaml
+name: e4_visibility_gating
+
+loss:
+  ce_branch: clean
+  consistency:
+    enabled: true
+    lambda: 1.0
+    divergence: kl
+    target:
+      kind: pred
+    gate:
+      combine: product
+      visibility: {kind: poly, k: 2.0}
+      confidence: {kind: none}

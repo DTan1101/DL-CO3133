@@ -1,0 +1,18 @@
+# E1 -- Tăng cường thông thường: Random Erasing (Zhong và cộng sự, 2020).
+# Vùng xoá đặt ngẫu nhiên trên toàn ảnh, không dùng mask tiền cảnh.
+_base_: _base_.yaml
+name: e1_random_erasing
+
+data:
+  occlusion:
+    strategy: random_erasing
+    shape: rect
+    fill: noise
+    prob: 0.5
+    erase_area: [0.02, 0.4]
+    erase_ratio: [0.3, 3.3]
+
+loss:
+  ce_branch: occ                  # huấn luyện trực tiếp trên ảnh đã bị xoá vùng
+  consistency:
+    enabled: false

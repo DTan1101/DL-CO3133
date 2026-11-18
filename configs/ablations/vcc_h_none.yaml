@@ -1,0 +1,7 @@
+# Ablation: bỏ cổng độ tin cậy (w = 1) -> tách riêng đóng góp của việc đổi đích.
+_base_: ../e6_vcc.yaml
+name: abl_vcc_h_none
+loss:
+  consistency:
+    gate:
+      confidence: {kind: none}

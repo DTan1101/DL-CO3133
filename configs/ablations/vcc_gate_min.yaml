@@ -1,0 +1,9 @@
+# Ablation: kết hợp hai cổng bằng min thay vì tích (Mục 5.6 bàn về điều kiện phân rã).
+_base_: ../e6_vcc.yaml
+name: abl_vcc_gate_min
+loss:
+  consistency:
+    gate:
+      combine: min
+      visibility: {kind: poly, k: 2.0}
+      confidence: {kind: linear, source: true_class}

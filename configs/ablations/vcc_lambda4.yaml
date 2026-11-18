@@ -1,0 +1,6 @@
+# Ablation VCC: λ = 4 (bản thảo quét λ ∈ {0,5; 1; 2; 4}).
+_base_: ../e6_vcc.yaml
+name: abl_vcc_lambda4
+loss:
+  consistency:
+    lambda: 4

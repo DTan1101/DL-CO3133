@@ -1,0 +1,7 @@
+# Ablation: trọng số Gaussian cắt cụt kiểu SoftMatch.
+_base_: ../e6_vcc.yaml
+name: abl_vcc_h_softmatch
+loss:
+  consistency:
+    gate:
+      confidence: {kind: softmatch, source: true_class, mu: 0.7, sigma: 0.2}

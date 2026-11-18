@@ -1,0 +1,6 @@
+# Ablation: chuẩn hoá Σ w·D / Σ w để cường độ hiệu dụng λ_eff không phụ thuộc E[w].
+_base_: ../e6_vcc.yaml
+name: abl_vcc_weighted_reduction
+loss:
+  consistency:
+    reduction: weighted

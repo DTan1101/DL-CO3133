@@ -1,1 +1,7 @@
-datasets/Oxford-IIIT_Pet_Dataset/*
+datasets/Oxford-IIIT_Pet_Dataset/
+checkpoints/*
+!checkpoints/.gitkeep
+__pycache__/
+*.py[cod]
+*.pth
+*.log

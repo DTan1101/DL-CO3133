@@ -1,0 +1,6 @@
+# Ablation: tách BatchNorm cho hai nhánh (AdvProp / Split-BN) thay vì dùng chung.
+_base_: ../e6_vcc.yaml
+name: abl_vcc_split_bn
+model:
+  split_bn: true
+  num_splits: 2

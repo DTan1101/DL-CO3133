@@ -1,0 +1,5 @@
+# Ablation: thêm cross-entropy trên cả nhánh ảnh bị che (CE + CE + consistency).
+_base_: ../e6_vcc.yaml
+name: abl_vcc_ce_both
+loss:
+  ce_branch: both

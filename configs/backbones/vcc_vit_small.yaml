@@ -1,0 +1,15 @@
+# VCC với ViT-S/16. Lưu ý: backbone transformer không cho bản đồ đặc trưng 4 chiều
+# nên không dùng được loss.visibility_source=semantic.
+_base_: ../e6_vcc.yaml
+name: e6_vcc_vit_small
+model:
+  backbone: vit_small_patch16_224
+  drop_path_rate: 0.1
+data:
+  loader:
+    batch_size: 32
+    eval_batch_size: 64
+train:
+  optimizer:
+    lr: 0.00003
+    head_lr_mult: 20.0

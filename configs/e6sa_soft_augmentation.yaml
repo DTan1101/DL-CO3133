@@ -1,0 +1,19 @@
+# E6-SA -- Soft Augmentation (Liu và cộng sự, 2023) với v lấy từ mask tiền cảnh:
+#   w = 1,  t = α(v)·e_y + (1 - α(v))·u
+# Khác VCC ở chỗ các lớp không phải nhãn đúng nhận xác suất BẰNG NHAU, nên
+# không mang thông tin về độ giống nhau giữa các giống (dùng để kiểm chứng H3).
+_base_: _base_.yaml
+name: e6sa_soft_augmentation
+
+loss:
+  ce_branch: clean
+  consistency:
+    enabled: true
+    lambda: 1.0
+    divergence: kl
+    target:
+      kind: soft_aug
+      k: 2.0
+    gate:
+      visibility: {kind: none}
+      confidence: {kind: none}

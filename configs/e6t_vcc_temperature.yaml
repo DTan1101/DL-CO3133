@@ -1,0 +1,19 @@
+# E6-T -- VCC làm mềm bằng NHIỆT ĐỘ thay vì trộn với phân phối đều:
+#   t = softmax(z / T(v)),  T(v) = 1 + (T_max - 1)·(1 - α(v))
+# Dùng để kiểm tra nhận xét: với C = 37, tăng T làm san phẳng khó kiểm soát.
+_base_: _base_.yaml
+name: e6t_vcc_temperature
+
+loss:
+  ce_branch: clean
+  consistency:
+    enabled: true
+    lambda: 1.0
+    divergence: kl
+    target:
+      kind: vcc_temp
+      k: 2.0
+      t_max: 4.0
+    gate:
+      visibility: {kind: none}
+      confidence: {kind: linear, source: true_class}

@@ -1,0 +1,7 @@
+# Ablation VCC: k = 3 trong α(v) = 1 - (1-v)^k (bản thảo quét k ∈ {1; 2; 3}).
+_base_: ../e6_vcc.yaml
+name: abl_vcc_k3
+loss:
+  consistency:
+    target:
+      k: 3.0

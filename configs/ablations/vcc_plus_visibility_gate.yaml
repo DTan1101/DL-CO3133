@@ -1,0 +1,10 @@
+# Ablation: VCC + visibility-gating, w = g(v)·h(c) và t = α(v)·p + (1-α(v))·u.
+# Kiểm tra xem đổi đích và giảm trọng số có bù trừ nhau hay không.
+_base_: ../e6_vcc.yaml
+name: abl_vcc_plus_vis_gate
+loss:
+  consistency:
+    gate:
+      combine: product
+      visibility: {kind: poly, k: 2.0}
+      confidence: {kind: linear, source: true_class}

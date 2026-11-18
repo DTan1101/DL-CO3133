@@ -1,0 +1,7 @@
+# Ablation: hiệu chỉnh p bằng temperature scaling TRƯỚC khi trộn (Mục Thảo luận).
+_base_: ../e6_vcc.yaml
+name: abl_vcc_teacher_temp
+loss:
+  consistency:
+    target:
+      teacher_temperature: 2.0

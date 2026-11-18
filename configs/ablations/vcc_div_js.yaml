@@ -1,0 +1,6 @@
+# Ablation: D = Jensen--Shannon (kiểu AugMix) thay cho KL.
+_base_: ../e6_vcc.yaml
+name: abl_vcc_div_js
+loss:
+  consistency:
+    divergence: js

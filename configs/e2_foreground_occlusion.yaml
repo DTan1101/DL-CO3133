@@ -1,0 +1,15 @@
+# E2 -- Che đúng vùng đối tượng: vật che được đặt trên tiền cảnh theo mask trimap,
+# tỷ lệ che trên tiền cảnh ρ ~ U[0; 0,8]. Không có hạng consistency.
+_base_: _base_.yaml
+name: e2_foreground_occlusion
+
+data:
+  occlusion:
+    strategy: foreground_coverage
+    shape: mixed
+    fill: mean
+
+loss:
+  ce_branch: occ
+  consistency:
+    enabled: false

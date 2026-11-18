@@ -1,0 +1,24 @@
+# E6 -- Visibility-Calibrated Consistency (phương pháp đề xuất).
+#   w = h(c) = p_y
+#   t = α(v)·p + (1 - α(v))·u,   α(v) = 1 - (1-v)^k
+# Đích được làm mềm theo mức nhìn thấy nên vẫn giữ thứ tự giữa các giống,
+# đồng thời đặt trần độ tin cậy giảm dần theo mức che.
+_base_: _base_.yaml
+name: e6_vcc
+
+loss:
+  ce_branch: clean
+  consistency:
+    enabled: true
+    lambda: 1.0
+    divergence: kl
+    reduction: mean
+    target:
+      kind: vcc
+      k: 2.0
+      prior: uniform
+      teacher_temperature: 1.0
+    gate:
+      combine: product
+      visibility: {kind: none}          # VCC đổi ĐÍCH, không giảm trọng số theo v
+      confidence: {kind: linear, source: true_class}

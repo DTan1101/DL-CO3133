@@ -1,0 +1,6 @@
+# Ablation VCC: λ = 2 (bản thảo quét λ ∈ {0,5; 1; 2; 4}).
+_base_: ../e6_vcc.yaml
+name: abl_vcc_lambda2
+loss:
+  consistency:
+    lambda: 2

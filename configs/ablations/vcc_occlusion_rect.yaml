@@ -1,0 +1,6 @@
+# Ablation: vật che chỉ là hình chữ nhật (thay vì trộn chữ nhật và vết không đều).
+_base_: ../e6_vcc.yaml
+name: abl_vcc_occ_rect
+data:
+  occlusion:
+    shape: rect

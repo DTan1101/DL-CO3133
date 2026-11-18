@@ -1,0 +1,6 @@
+# Ablation: gộp cả vùng biên (trimap = 3) vào tiền cảnh khi tính v.
+_base_: ../e6_vcc.yaml
+name: abl_vcc_trimap_boundary
+data:
+  foreground:
+    values: [1, 3]

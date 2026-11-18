@@ -1,0 +1,17 @@
+# E5 -- Visibility + confidence gating:  w = g(v)·h(c),  t = p.
+# h(c) = c với c = p_y (xác suất của nhãn đúng trên ảnh gốc).
+_base_: _base_.yaml
+name: e5_vis_conf_gating
+
+loss:
+  ce_branch: clean
+  consistency:
+    enabled: true
+    lambda: 1.0
+    divergence: kl
+    target:
+      kind: pred
+    gate:
+      combine: product
+      visibility: {kind: poly, k: 2.0}
+      confidence: {kind: linear, source: true_class}

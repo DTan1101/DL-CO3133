@@ -1,0 +1,7 @@
+# Ablation: thay u = (1/C)·1 bằng tần suất lớp π của tập train (Nhận xét sau Mệnh đề 3).
+_base_: ../e6_vcc.yaml
+name: abl_vcc_prior_class_freq
+loss:
+  consistency:
+    target:
+      prior: class_freq

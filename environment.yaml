@@ -1,0 +1,21 @@
+# Môi trường chạy thí nghiệm VCC:
+#   conda env create -f environment.yaml && conda activate vcc-pets
+# Nếu máy không có GPU NVIDIA, bỏ dòng pytorch-cuda và cài bản CPU của PyTorch.
+name: vcc-pets
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pytorch>=2.2
+  - torchvision>=0.17
+  - pytorch-cuda=12.1
+  - numpy>=1.24
+  - pillow>=10.0
+  - pyyaml>=6.0
+  - tqdm
+  - matplotlib            # vẽ đường accuracy--ρ và biểu đồ reliability
+  - pip:
+      - timm>=0.9.12      # mở rộng danh sách backbone (ConvNeXt, ViT, EfficientNet, ...)

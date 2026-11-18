@@ -1,0 +1,5 @@
+# VCC với MobileNetV3-Large (backbone nhẹ, dùng khi cần chạy nhanh).
+_base_: ../e6_vcc.yaml
+name: e6_vcc_mobilenetv3
+model:
+  backbone: mobilenetv3_large_100

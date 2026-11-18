@@ -1,0 +1,15 @@
+# E3 -- Consistency KL cố định:  w = 1,  t = p  (p là dự đoán trên ảnh gốc, đã chặn gradient).
+_base_: _base_.yaml
+name: e3_consistency
+
+loss:
+  ce_branch: clean
+  consistency:
+    enabled: true
+    lambda: 1.0
+    divergence: kl
+    target:
+      kind: pred
+    gate:
+      visibility: {kind: none}
+      confidence: {kind: none}

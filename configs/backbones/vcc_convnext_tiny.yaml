@@ -1,0 +1,13 @@
+# VCC với ConvNeXt-Tiny (dùng LayerNorm nên split_bn không áp dụng).
+_base_: ../e6_vcc.yaml
+name: e6_vcc_convnext_tiny
+model:
+  backbone: convnext_tiny
+  drop_path_rate: 0.1
+data:
+  loader:
+    batch_size: 32
+    eval_batch_size: 64
+train:
+  optimizer:
+    lr: 0.00005

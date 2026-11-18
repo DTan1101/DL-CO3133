@@ -1,0 +1,5 @@
+# VCC với EfficientNet-B0.
+_base_: ../e6_vcc.yaml
+name: e6_vcc_efficientnet_b0
+model:
+  backbone: efficientnet_b0

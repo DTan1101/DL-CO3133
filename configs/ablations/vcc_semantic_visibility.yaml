@@ -1,0 +1,8 @@
+# Ablation: v_sem có trọng số CAM thay cho tỷ lệ pixel (Nhận xét ở Mục 5.6).
+# v_sem = Σ m·(1-o)·a / Σ m·a, với a là CAM của nhãn đúng trên ảnh gốc.
+_base_: ../e6_vcc.yaml
+name: abl_vcc_semantic_visibility
+data:
+  return_masks: true
+loss:
+  visibility_source: semantic

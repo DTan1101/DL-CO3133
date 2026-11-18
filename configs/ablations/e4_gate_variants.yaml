@@ -1,0 +1,8 @@
+# Ablation cho E4: cổng sigmoid σ((v - v0)/τ) với v0 = 0,5 và τ = 0,1 (Bảng 2).
+# Các dạng khác đổi nhanh bằng --set loss.consistency.gate.visibility.kind=linear|hard
+_base_: ../e4_visibility_gating.yaml
+name: abl_e4_gate_sigmoid
+loss:
+  consistency:
+    gate:
+      visibility: {kind: sigmoid, v0: 0.5, tau: 0.1}

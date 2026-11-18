@@ -1,0 +1,9 @@
+# Mức cơ sở E0 cho ResNet-50, để so sánh công bằng với configs/backbones/vcc_resnet50.yaml.
+_base_: ../e0_baseline.yaml
+name: e0_baseline_resnet50
+model:
+  backbone: resnet50
+data:
+  loader:
+    batch_size: 32
+    eval_batch_size: 64
