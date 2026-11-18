@@ -1,0 +1,519 @@
+% Biên dịch: xelatex main && bibtex main && xelatex main && xelatex main
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{fontspec}
+\usepackage[vietnamese, provide=*]{babel}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}
+
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{booktabs,array,multirow}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc,patterns}
+\usepackage{pgfplots}
+\usepgfplotslibrary{groupplots}
+\pgfplotsset{compat=1.17}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+
+% ---------- Tên gọi tiếng Việt ----------
+\renewcommand{\figurename}{Hình}
+\renewcommand{\tablename}{Bảng}
+\renewcommand{\proofname}{Chứng minh}
+\AddToHook{begindocument/end}{\renewcommand{\refname}{Tài liệu tham khảo}\renewcommand{\abstractname}{Tóm tắt}}
+\floatname{algorithm}{Thuật toán}
+\algrenewcommand\algorithmicrequire{\textbf{Đầu vào:}}
+\algrenewcommand\algorithmicensure{\textbf{Đầu ra:}}
+
+\theoremstyle{plain}
+\newtheorem{proposition}{Mệnh đề}
+\newtheorem{lemma}[proposition]{Bổ đề}
+\newtheorem{corollary}[proposition]{Hệ quả}
+\theoremstyle{definition}
+\newtheorem{definition}{Định nghĩa}
+\newtheorem{assumption}{Giả thiết}
+\theoremstyle{remark}
+\newtheorem{remark}{Nhận xét}
+
+% ---------- Ký hiệu ----------
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Simplex}{\Delta^{C-1}}
+\newcommand{\KL}{\mathrm{KL}}
+\newcommand{\CE}{\mathrm{CE}}
+\newcommand{\sg}{\operatorname{sg}}
+\newcommand{\softmax}{\operatorname{softmax}}
+\newcommand{\bp}{\bm{p}}
+\newcommand{\bq}{\bm{q}}
+\newcommand{\bt}{\bm{t}}
+\newcommand{\bu}{\bm{u}}
+\newcommand{\bz}{\bm{z}}
+\newcommand{\be}{\bm{e}}
+\newcommand{\xt}{\tilde{x}}
+\newcommand{\zt}{\tilde{\bz}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+\title{\textbf{Học nhất quán hiệu chỉnh theo mức nhìn thấy\\cho phân loại giống chó, mèo dưới che khuất một phần}\\[4pt]
+\large Visibility-Gated and Visibility-Calibrated Consistency Learning\\for Robust Fine-Grained Pet Classification}
+\author{[Tên tác giả]\\[2pt]\small [Đơn vị]}
+\date{Bản thảo, tháng 11/2026 --- \textit{chưa có kết quả thực nghiệm}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Phân loại ảnh chi tiết (FGVC) phụ thuộc vào những vùng nhỏ như mặt, tai và hoa văn bộ lông. Vì vậy hiệu suất giảm mạnh khi đối tượng bị che một phần. Học nhất quán (consistency learning) là cách phổ biến để tăng độ bền: buộc dự đoán trên ảnh bị che giống dự đoán trên ảnh gốc. Tuy nhiên, khi phần lớn thông tin nhận diện đã mất, ép mô hình đưa ra cùng một dự đoán tự tin là một mục tiêu không đạt được và có thể gây hại. Bài báo này trình bày một khung thống nhất, trong đó mỗi phương pháp consistency được xác định bởi một cặp (trọng số mẫu $w$, phân phối đích $\bt$). Trong khung này, chúng tôi xét hai cơ chế: (i) \emph{visibility-gating}, giảm trọng số consistency theo tỷ lệ tiền cảnh còn nhìn thấy $v$ (đo bằng segmentation mask) và theo độ tin cậy trên ảnh gốc; (ii) \emph{Visibility-Calibrated Consistency} (VCC), thay đích bằng $\bt = \alpha(v)\,\bp + (1-\alpha(v))\,\bu$. Phân tích cho thấy: gating chỉ thay đổi tốc độ học, không thay đổi điểm tối ưu của từng mẫu; ngược lại, VCC là hậu nghiệm Bayes dưới một mô hình ``đủ hoặc mất thông tin'', giữ nguyên thứ tự giữa các lớp, đặt một trần độ tin cậy giảm dần theo mức che, và chứa Soft Augmentation như trường hợp riêng khi đích gốc là nhãn one-hot. Chúng tôi đề xuất giao thức thực nghiệm trên Oxford-IIIT Pet với che khuất có kiểm soát trên tiền cảnh. \textbf{Bản thảo này chưa bao gồm kết quả thực nghiệm}; các bảng kết quả được để trống để điền sau.
+\end{abstract}
+
+\section{Giới thiệu}
+
+Phân loại ảnh chi tiết (fine-grained visual classification, FGVC) yêu cầu phân biệt các lớp con có ngoại hình rất giống nhau, với khác biệt giữa lớp nhỏ và biến đổi trong lớp lớn \cite{wei2022fgia}. Bộ dữ liệu Oxford-IIIT Pet \cite{parkhi2012cats} là một ví dụ điển hình: 37 giống chó, mèo, trong đó việc phân biệt dựa vào hình dạng mặt, tai và đặc trưng bộ lông. Trong thực tế, con vật thường bị che một phần bởi đồ vật, người hoặc khung hình. Các nghiên cứu đã chỉ ra rằng che các phần quan trọng của đối tượng làm độ tin cậy của CNN giảm mạnh \cite{zeiler2014visualizing}. Con người vẫn nhận diện tốt dưới che khuất nặng trong khi CNN thì không \cite{zhu2019robustness}. Ngay cả khi đã được tăng cường mạnh bằng che khuất, DCNN vẫn không phân loại bền vững các đối tượng bị che \cite{kortylewski2020compositional}.
+
+Hai hướng phổ biến để tăng độ bền là tăng cường dữ liệu dạng xóa vùng \cite{zhong2020random,devries2017cutout,singh2017hide,yun2019cutmix} và học nhất quán \cite{laine2017temporal,tarvainen2017mean,zheng2016stability,hendrycks2020augmix}. Học nhất quán thêm một hạng phạt $D(\bp,\bq)$ giữa dự đoán $\bp$ trên ảnh gốc và $\bq$ trên ảnh biến đổi. Ngầm định của hạng phạt này là ảnh biến đổi vẫn giữ đủ thông tin để đưa ra cùng một dự đoán. Với che khuất mạnh trong FGVC, ngầm định đó không còn đúng. Nếu 70\% con mèo bị che, bao gồm gần hết khuôn mặt, thì việc ép $\bq$ bằng $\bp$ (ví dụ ``Siamese 80\%'') là bắt mô hình tự tin về điều nó không thể thấy. Hệ quả có thể là học các tương quan giả với nền ảnh \cite{krothapalli2020adaptive} và làm trầm trọng thêm vấn đề tự tin quá mức vốn có của mạng sâu \cite{guo2017calibration}.
+
+\paragraph{Đóng góp.} Bài báo có bốn đóng góp:
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+  \item Một \textbf{khung trọng số--đích thống nhất} (Mục~\ref{sec:framework}), trong đó consistency cố định, visibility-gating, confidence-gating, Soft Augmentation \cite{liu2023soft} và phương pháp đề xuất đều là các trường hợp riêng, phân biệt bởi cặp $(w_i,\bt_i)$.
+  \item \textbf{Visibility-Calibrated Consistency (VCC)}: thay vì chỉ giảm trọng số, VCC đổi đích thành một phân phối được làm mềm theo mức nhìn thấy $v$. Mức nhìn thấy được đo chính xác từ segmentation mask của tiền cảnh.
+  \item \textbf{Phân tích toán học} (Mục~\ref{sec:theory}): gradient bị chặn; gating không đổi điểm tối ưu từng mẫu; VCC là hậu nghiệm Bayes dưới mô hình ``đủ hoặc mất thông tin''; các tính chất bảo toàn thứ tự, trần độ tin cậy và entropy đơn điệu; Soft Augmentation là trường hợp riêng; điều kiện để phân rã $w=w_v w_c$.
+  \item Một \textbf{giao thức thực nghiệm} có kiểm soát trên Oxford-IIIT Pet (Mục~\ref{sec:exp}), gồm các thí nghiệm loại trừ (ablation) để tách đóng góp của từng thành phần.
+\end{enumerate}
+Về tính mới, chúng tôi lưu ý rằng từng thành phần đều có tiền lệ: làm mềm đích theo mức biến đổi \cite{liu2023soft,siedel2026combined,krothapalli2020adaptive}, trọng số consistency theo độ tin cậy \cite{sohn2020fixmatch,chen2023softmatch,yu2019uncertainty,hoyer2023mic}, và đích mềm từ mô hình thầy \cite{hinton2015distilling}. Đóng góp của bài báo là kết hợp chúng một cách có nguyên lý cho FGVC dưới che khuất, cùng với phân tích lý thuyết đi kèm.
+
+\section{Công trình liên quan}
+\label{sec:related}
+
+\paragraph{FGVC và che khuất.} Các phương pháp FGVC dựa trên CNN thường khai thác tương tác đặc trưng cục bộ \cite{lin2015bilinear} hoặc attention vào vùng phân biệt \cite{fu2017look}; xem khảo sát \cite{wei2022fgia}. Về độ bền với che khuất, CompositionalNets thay đầu phân loại bằng mô hình thành phần để định vị vật che \cite{kortylewski2020compositional}. OASIC ước lượng mức độ che khi kiểm tra và chọn mô hình được huấn luyện cho mức tương ứng \cite{gijzen2026oasic}. Trong tái nhận dạng người, VPM học nhận biết vùng nhìn thấy và chỉ so khớp trên vùng chung \cite{sun2019vpm}.
+
+\paragraph{Tăng cường bằng xóa vùng.} Random Erasing \cite{zhong2020random} và Cutout \cite{devries2017cutout} xóa ngẫu nhiên một vùng chữ nhật. Hide-and-Seek ẩn các mảnh ảnh để mạng học thêm các bộ phận ít phân biệt hơn \cite{singh2017hide}. CutMix dán vùng từ ảnh khác và trộn nhãn theo diện tích \cite{yun2019cutmix}. Với FGVC, SnapMix cho thấy trộn nhãn theo tỷ lệ pixel gây nhiễu nhãn và dùng CAM để ước lượng tỷ lệ ngữ nghĩa \cite{huang2021snapmix}. KeepAugment tránh xóa các vùng có saliency cao \cite{gong2021keepaugment}.
+
+\paragraph{Học nhất quán.} $\Pi$-model phạt sai khác giữa hai lần truyền qua mạng của cùng một đầu vào \cite{laine2017temporal}. Mean Teacher dùng giáo viên trung bình động và cảnh báo về \emph{confirmation bias} khi đặt quá nhiều trọng số vào đích tự sinh \cite{tarvainen2017mean}. Trong bài toán có giám sát, Stability Training dùng KL giữa ảnh gốc và ảnh nhiễu \cite{zheng2016stability}, còn AugMix dùng phân kỳ Jensen--Shannon \cite{hendrycks2020augmix}.
+
+\paragraph{Đích mềm và làm mềm thích nghi.} Chưng cất tri thức dùng phân phối mềm của mô hình thầy để truyền ``tri thức tối'' về quan hệ giữa các lớp \cite{hinton2015distilling}. Soft Augmentation làm mềm nhãn one-hot theo mức biến đổi, với $p = 1-(1-p_{\min})(1-v)^k$, trong đó $v$ là phần ảnh còn lại sau khi cắt \cite{liu2023soft}. Siedel và cộng sự mở rộng ý tưởng này cho Random Erasing, với $v$ là tỷ lệ diện tích ảnh bị che, và nhận thấy lợi ích biến mất khi kết hợp nhiều loại tăng cường \cite{siedel2026combined}. Krothapalli và Abbott đặt hệ số làm mềm theo tỷ lệ vật thể trong ảnh, tính từ mask suy ra từ bounding box \cite{krothapalli2020adaptive}.
+
+\paragraph{Trọng số theo độ tin cậy.} FixMatch chỉ giữ pseudo-label có độ tin cậy vượt ngưỡng \cite{sohn2020fixmatch}. SoftMatch thay ngưỡng cứng bằng trọng số Gaussian cắt cụt \cite{chen2023softmatch}. UA-MT lọc theo độ bất định \cite{yu2019uncertainty}. MIC nhân hạng masked consistency với một trọng số chất lượng của pseudo-label \cite{hoyer2023mic}. AdaWAC học trọng số cân bằng giữa cross-entropy và consistency cho từng mẫu \cite{dong2023adawac}.
+
+\section{Bài toán và ký hiệu}
+\label{sec:setup}
+
+Cho tập huấn luyện $\mathcal{D}=\{(x_i,y_i,m_i)\}_{i=1}^N$, với $x_i$ là ảnh, $y_i\in[C]=\{1,\dots,C\}$ là nhãn giống ($C=37$), và $m_i\in\{0,1\}^{H\times W}$ là mask tiền cảnh lấy từ trimap của bộ dữ liệu. Mạng $f_\theta$ cho logits $\bz=f_\theta(x)\in\R^C$. Ta ký hiệu $\Simplex$ là đơn hình xác suất, $\bu=\tfrac{1}{C}\mathbf{1}$ là phân phối đều, $\be_y$ là vector one-hot, và $\sg(\cdot)$ là toán tử chặn gradient (stop-gradient).
+
+\paragraph{Biến đổi chung và che khuất.} Với mỗi mẫu, một phép biến đổi hình học ngẫu nhiên $T$ (cắt, lật, đổi kích thước) được áp \emph{đồng thời} lên ảnh và mask: $(x,m)\leftarrow(T(x),T(m))$. Toán tử che sinh một mask vật che $o\in\{0,1\}^{H\times W}$ và một mẫu tô $\eta$ (xám, nhiễu hoặc kết cấu), rồi tạo
+\begin{equation}
+  \xt = (1-o)\odot x + o\odot \eta .
+\end{equation}
+Như vậy $x$ và $\xt$ chỉ khác nhau ở vùng bị che.
+
+\begin{definition}[Mức nhìn thấy]
+Mức nhìn thấy của tiền cảnh là
+\begin{equation}
+  v \;=\; \frac{\sum_{h,w} m_{hw}\,(1-o_{hw})}{\sum_{h,w} m_{hw}} \in[0,1],
+  \qquad \rho = 1-v \ \text{là tỷ lệ che trên tiền cảnh.}
+\end{equation}
+\end{definition}
+
+Mask chỉ được dùng khi huấn luyện; khi suy luận, mô hình chỉ nhận ảnh.
+
+Ta ký hiệu $\bp=\sg(\softmax(\bz))$ với $\bz=f_\theta(x)$, và $\bq=\softmax(\zt)$ với $\zt=f_\theta(\xt)$. Độ tin cậy trên ảnh gốc là $c=p_y$, tức xác suất của nhãn đúng. Bài toán đặt ra là: \emph{huấn luyện $f_\theta$ sao cho độ chính xác và độ hiệu chỉnh trên ảnh bị che được cải thiện, mà không làm giảm đáng kể hiệu suất trên ảnh sạch.}
+
+\section{Phương pháp}
+\label{sec:method}
+
+\subsection{Khung trọng số--đích thống nhất}
+\label{sec:framework}
+
+Mọi phương pháp xét trong bài được viết dưới dạng
+\begin{equation}
+  \label{eq:general}
+  \mathcal{L}(\theta) \;=\; \frac{1}{B}\sum_{i=1}^{B}\CE(\bz_i,y_i)
+  \;+\;\lambda\,\frac{1}{B}\sum_{i=1}^{B} w_i\,\KL\!\left(\bt_i \,\middle\|\, \bq_i\right),
+\end{equation}
+trong đó $w_i\ge 0$ và $\bt_i\in\Simplex$ không nhận gradient. Mỗi phương pháp được xác định bởi cặp $(w_i,\bt_i)$, như tóm tắt ở Bảng~\ref{tab:framework}. Vì $\KL(\bt\|\bq)=H(\bt,\bq)-H(\bt)$ và $H(\bt)$ là hằng số theo $\theta$, hạng thứ hai tương đương cross-entropy với nhãn mềm $\bt$.
+
+\begin{table}[t]
+\centering
+\caption{Các phương pháp như những trường hợp riêng của \eqref{eq:general}. $g$, $h$ là các hàm cổng (Mục~\ref{sec:gates}); $\alpha(v)=1-(1-v)^k$.}
+\label{tab:framework}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Phương pháp & Trọng số $w_i$ & Đích $\bt_i$ \\
+\midrule
+Consistency cố định (E3) & $1$ & $\bp_i$ \\
+Visibility-gating (E4) & $g(v_i)$ & $\bp_i$ \\
+Visibility + confidence gating (E5) & $g(v_i)\,h(c_i)$ & $\bp_i$ \\
+Soft Augmentation \cite{liu2023soft} (trên ảnh che) & $1$ & $\alpha(v_i)\,\be_{y_i}+(1-\alpha(v_i))\,\bu$ \\
+\textbf{VCC (đề xuất, E6)} & $h(c_i)$ & $\alpha(v_i)\,\bp_i+(1-\alpha(v_i))\,\bu$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Visibility-gating và confidence-gating}
+\label{sec:gates}
+
+Visibility-gating đặt $w_i=g(v_i)$, với $g:[0,1]\to[0,1]$ là hàm không giảm. Bảng~\ref{tab:gates} liệt kê các lựa chọn. Confidence-gating đặt $w_i=h(c_i)$. Các lựa chọn cho $h$ gồm $h(c)=c$, ngưỡng cứng $h(c)=\mathbf{1}[c\ge\tau]$ như FixMatch \cite{sohn2020fixmatch}, hoặc trọng số mềm như SoftMatch \cite{chen2023softmatch}. Khi kết hợp hai cổng, ta dùng tích $w=g(v)\,h(c)$; Mục~\ref{sec:factor} phân tích khi nào phép phân rã này hợp lý.
+
+\begin{table}[t]
+\centering
+\caption{Các hàm cổng visibility $g(v)$, tính tại ba mức che trong bản thảo gốc (che 10\%, 30\%, 70\% tiền cảnh). Hàm sigmoid dùng $v_0=0{,}5$, $\tau=0{,}1$.}
+\label{tab:gates}
+\begin{tabular}{@{}lcccl@{}}
+\toprule
+$g(v)$ & $v=0{,}9$ & $v=0{,}7$ & $v=0{,}3$ & Ghi chú \\
+\midrule
+$1$ (không cổng) & 1 & 1 & 1 & E3 \\
+$\mathbf{1}[v\ge 0{,}5]$ & 1 & 1 & 0 & Cổng cứng \\
+$v$ & 0,90 & 0,70 & 0,30 & Tuyến tính \\
+$1-(1-v)^2$ & 0,99 & 0,91 & 0,51 & Dạng của \cite{liu2023soft}, $p_{\min}=0$ \\
+$\sigma\big((v-v_0)/\tau\big)$ & 0,98 & 0,88 & 0,12 & Sigmoid \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Visibility-Calibrated Consistency (VCC)}
+
+Ý tưởng chính của VCC là \emph{đổi đích} thay vì chỉ đổi trọng số. Ảnh bị che phải được dạy để tự tin đúng bằng lượng thông tin còn lại. Đích của VCC là
+\begin{equation}
+  \label{eq:vcc-target}
+  \bt_i \;=\; \alpha(v_i)\,\bp_i + \big(1-\alpha(v_i)\big)\,\bu,
+  \qquad \alpha(v)=1-(1-v)^k,\ k>0,
+\end{equation}
+và hàm mục tiêu là
+\begin{equation}
+  \label{eq:vcc}
+  \mathcal{L}_{\mathrm{VCC}} \;=\; \frac{1}{B}\sum_{i}\CE(\bz_i,y_i)
+  \;+\;\lambda\,\frac{1}{B}\sum_{i} h(c_i)\,\KL\!\left(\bt_i\,\middle\|\,\bq_i\right).
+\end{equation}
+Hàm $\alpha$ có cùng dạng với hàm làm mềm của Soft Augmentation \cite{liu2023soft}. Điểm khác là VCC làm mềm \emph{phân phối dự đoán của ảnh gốc} thay vì nhãn one-hot. Nhờ đó, quan hệ giữa các giống (ví dụ Siamese gần Birman hơn Pug) được giữ lại; xem Mệnh đề~\ref{prop:props} và Hình~\ref{fig:toy}. Trọng số $h(c_i)$ ngăn việc lan truyền đích từ những dự đoán sai trên ảnh gốc.
+
+\begin{remark}[Vì sao trộn với phân phối đều thay vì dùng nhiệt độ]
+Làm mềm bằng nhiệt độ, $\softmax(\bz/T)$, là lựa chọn kinh điển của chưng cất \cite{hinton2015distilling}. Với $C=37$, tăng $T$ làm nâng đồng thời hơn 30 lớp có xác suất gần $0$, khiến đích bị san phẳng khó kiểm soát. Phép trộn tuyến tính \eqref{eq:vcc-target} điều khiển trực tiếp xác suất lớn nhất qua $\alpha$ (Mệnh đề~\ref{prop:props}(b)). Biến thể dùng nhiệt độ được giữ lại như một thí nghiệm loại trừ.
+\end{remark}
+
+\begin{figure}[t]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  box/.style={draw, rounded corners=3pt, align=center, minimum height=9mm, inner sep=4pt, fill=gray!6},
+  net/.style={draw, rounded corners=3pt, align=center, minimum height=9mm, minimum width=14mm, fill=blue!8},
+  loss/.style={draw, rounded corners=3pt, align=center, minimum height=9mm, inner sep=4pt, fill=orange!12},
+  arr/.style={-{Stealth[length=2.2mm]}, thick}
+]
+\node[box] (in) at (0,0) {Ảnh $x$,\\mask $m$};
+\node[box] (T) at (2.7,0) {Biến đổi\\hình học $T$\\(chung)};
+\node[box] (occ) at (5.4,-1.4) {Che tiền cảnh\\$\to\ \xt,\ v$};
+\node[net] (f1) at (8.3,1.4) {$f_\theta$};
+\node[net] (f2) at (8.3,-1.4) {$f_\theta$};
+\node[box] (p) at (11.6,1.4) {$\bp=\sg(\softmax\,\bz)$};
+\node[box] (q) at (11.6,-1.4) {$\bq=\softmax\,\zt$};
+\node[loss] (ce) at (11.6,3.0) {$\CE(\bz,y)$};
+\node[box] (t) at (16.4,1.4) {$\bt=\alpha(v)\,\bp+(1-\alpha(v))\,\bu$\\$w=h(c)$};
+\node[loss] (kl) at (16.4,-1.4) {$\lambda\,w\,\KL(\bt\,\|\,\bq)$};
+\draw[arr] (in) -- (T);
+\draw[arr] (T.north) |- (f1.west);
+\draw[arr] (T.south) |- (occ.west);
+\draw[arr] (occ) -- (f2);
+\draw[arr] (f1) -- (p);
+\draw[arr] (f2) -- (q);
+\draw[arr] (f1.north) |- (ce.west);
+\draw[arr] (p) -- (t);
+\draw[arr] (q) -- (kl);
+\draw[arr] (t) -- (kl);
+\draw[arr] (occ.south) -- ++(0,-0.7) -| node[pos=0.25, below, font=\scriptsize]{mức nhìn thấy $v$} ($(t.east)+(0.7,0)$) -- (t.east);
+\draw[dashed] (f1.south) -- node[right, font=\scriptsize]{chung trọng số} (f2.north);
+\end{tikzpicture}}
+\caption{Sơ đồ VCC. Ảnh gốc và ảnh bị che chịu cùng phép biến đổi hình học và được ghép vào một batch $2B$ để truyền qua cùng một mạng. Mask chỉ dùng để tạo vùng che và tính $v$ khi huấn luyện.}
+\label{fig:pipeline}
+\end{figure}
+
+\begin{algorithm}[t]
+\caption{Một bước huấn luyện VCC}
+\label{alg:vcc}
+\begin{algorithmic}[1]
+\Require batch $\{(x_i,y_i,m_i)\}_{i=1}^B$; tham số $\lambda,k$; hàm $h$
+\For{$i=1,\dots,B$}
+  \State $(x_i,m_i)\gets(T_i(x_i),T_i(m_i))$ \Comment{cùng phép biến đổi cho ảnh và mask}
+  \State Sinh $o_i$ trên tiền cảnh; $\xt_i\gets(1-o_i)\odot x_i+o_i\odot\eta_i$; tính $v_i$
+\EndFor
+\State $[\bz_{1:B};\zt_{1:B}]\gets f_\theta([x_{1:B};\xt_{1:B}])$ \Comment{một lượt truyền, batch $2B$}
+\State $\bp_i\gets\sg(\softmax\,\bz_i)$,\quad $\bq_i\gets\softmax\,\zt_i$
+\State $\alpha_i\gets1-(1-v_i)^k$,\quad $\bt_i\gets\alpha_i\bp_i+(1-\alpha_i)\bu$,\quad $w_i\gets h(p_{i,y_i})$
+\State $\mathcal{L}\gets\frac{1}{B}\sum_i\CE(\bz_i,y_i)+\lambda\frac{1}{B}\sum_i w_i\,\KL(\bt_i\|\bq_i)$
+\State Cập nhật $\theta$ bằng $\nabla_\theta\mathcal{L}$ (AdamW)
+\end{algorithmic}
+\end{algorithm}
+
+\section{Phân tích toán học}
+\label{sec:theory}
+
+\subsection{Gradient của hạng consistency}
+
+\begin{lemma}[Gradient theo logits]
+\label{lem:grad}
+Với $\bt\in\Simplex$ cố định và $\bq=\softmax(\zt)$:
+\[
+  \nabla_{\zt}\,\KL(\bt\,\|\,\bq) = \bq-\bt,
+  \qquad \|\bq-\bt\|_2\le\sqrt2,\quad \|\bq-\bt\|_1\le 2 .
+\]
+\end{lemma}
+\begin{proof}
+Ta có $\KL(\bt\|\bq)=\sum_j t_j\log t_j-\sum_j t_j\log q_j$ và $\partial\log q_j/\partial\tilde z_k=\delta_{jk}-q_k$. Do đó
+\[
+  \frac{\partial}{\partial\tilde z_k}\KL(\bt\|\bq)=-\sum_j t_j(\delta_{jk}-q_k)=-t_k+q_k\sum_j t_j=q_k-t_k .
+\]
+Với $\bq,\bt\in\Simplex$: $\|\bq-\bt\|_2^2=\|\bq\|_2^2+\|\bt\|_2^2-2\langle\bq,\bt\rangle\le1+1-0=2$, và $\|\bq-\bt\|_1\le\|\bq\|_1+\|\bt\|_1=2$.
+\end{proof}
+
+Áp dụng cho \eqref{eq:general}: vì $w_i$ và $\bt_i$ không nhận gradient, $\nabla_{\zt_i}\mathcal{L}=\tfrac{\lambda}{B}\,w_i\,(\bq_i-\bt_i)$. Đồng thời $\nabla_{\bz_i}\mathcal{L}=\tfrac1B(\softmax(\bz_i)-\be_{y_i})$, nghĩa là nhánh ảnh gốc chỉ học từ nhãn. Như vậy $w_i$ chỉ thay đổi \emph{độ lớn} lực kéo của mẫu $i$, không thay đổi hướng của nó.
+
+\begin{remark}[So sánh với MSE]
+Với $D=\tfrac1C\|\bq-\bp\|_2^2$, ta có $\nabla_{\zt}D=\tfrac2C\,J(\bq)\,(\bq-\bp)$, trong đó $J(\bq)=\operatorname{diag}(\bq)-\bq\bq^\top$ là Jacobian của softmax. Khi $\bq$ tiến đến một đỉnh của đơn hình thì $J(\bq)\to0$. Vì vậy MSE cho gradient biến mất với các dự đoán bão hòa, kể cả khi chúng sai. Điều này lý giải vì sao MSE ``hiền'' với đích nhiễu \cite{laine2017temporal,tarvainen2017mean} nhưng chậm sửa sai. Ngược lại, KL cho gradient $\bq-\bt$ không suy biến.
+\end{remark}
+
+\subsection{Gating chỉ đổi tốc độ, không đổi điểm tối ưu}
+
+\begin{proposition}
+\label{prop:gating}
+Với mỗi mẫu cố định, xét bài toán $\min_{\bq\in\Simplex} w\,\KL(\bp\|\bq)$.
+\begin{enumerate}[label=(\alph*),itemsep=1pt]
+  \item Nếu $w>0$ thì nghiệm duy nhất là $\bq^\star=\bp$, với mọi giá trị của $w$.
+  \item Nếu $w=0$ thì mọi $\bq\in\Simplex$ đều là nghiệm.
+\end{enumerate}
+\end{proposition}
+\begin{proof}
+(a) Theo bất đẳng thức Gibbs, $\KL(\bp\|\bq)\ge0$, với dấu bằng khi và chỉ khi $\bq=\bp$; nhân với hằng số $w>0$ không đổi tập nghiệm. (b) là hiển nhiên.
+\end{proof}
+
+\begin{corollary}
+Dưới E3, E4 và E5, với mọi ảnh bị che có $w_i>0$, đích tối ưu của consistency vẫn là $\bp_i$, \emph{bất kể} mức nhìn thấy $v_i$. Gating chỉ làm chậm quá trình kéo $\bq_i$ về $\bp_i$. Với cổng cứng ($w_i=0$), hành vi của mô hình trên ảnh đó hoàn toàn không bị ràng buộc, mà do thiên kiến quy nạp của mạng quyết định. Không phương pháp nào trong ba phương pháp này \emph{dạy} mô hình giảm độ tin cậy khi thông tin mất đi.
+\end{corollary}
+
+\subsection{VCC là hậu nghiệm Bayes dưới mô hình ``đủ hoặc mất thông tin''}
+
+\begin{assumption}[Mô hình đủ hoặc mất thông tin]
+\label{ass:sufficiency}
+Tồn tại biến ẩn $S\in\{0,1\}$ thỏa mãn:
+\begin{enumerate}[label=(\roman*),itemsep=1pt]
+  \item $P(S=1\mid x,o)=\alpha(v)$, tức xác suất ảnh bị che còn đủ thông tin chỉ phụ thuộc vào mức nhìn thấy;
+  \item nếu $S=1$ thì $P(y\mid\xt,S=1)=P(y\mid x)$;
+  \item nếu $S=0$ thì $\xt$ không mang thông tin về $y$, tức $P(y\mid\xt,S=0)=\pi(y)$ là phân phối tiên nghiệm của lớp.
+\end{enumerate}
+\end{assumption}
+
+\begin{proposition}
+\label{prop:bayes}
+Dưới Giả thiết~\ref{ass:sufficiency}, hậu nghiệm của nhãn khi biết ảnh bị che là
+\[
+  P(y\mid\xt)=\alpha(v)\,P(y\mid x)+\big(1-\alpha(v)\big)\,\pi(y).
+\]
+Nếu $\pi=\bu$ và $\bp$ là ước lượng của $P(\cdot\mid x)$, thì vế phải chính là đích VCC \eqref{eq:vcc-target}. Hơn nữa, $\bt$ là nghiệm duy nhất của $\min_{\bq\in\Simplex}\KL(\bt\|\bq)$. Vì vậy, nếu mô hình đạt cực tiểu của hạng consistency thì $\bq$ trùng với hậu nghiệm và được hiệu chỉnh dưới giả thiết này.
+\end{proposition}
+\begin{proof}
+Theo công thức xác suất toàn phần với $S$:
+$P(y\mid\xt)=\sum_{s\in\{0,1\}}P(S=s\mid\xt)\,P(y\mid\xt,S=s)=\alpha(v)P(y\mid x)+(1-\alpha(v))\pi(y)$.
+Phần thứ hai: $\KL(\bt\|\bq)=\E_{y\sim\bt}[-\log q_y]-H(\bt)$. Log-loss là quy tắc chấm điểm chặt (strictly proper scoring rule), nên cực tiểu duy nhất đạt tại $\bq=\bt$; điều này cũng suy ra trực tiếp từ bất đẳng thức Gibbs.
+\end{proof}
+
+\begin{remark}
+Giả thiết $\pi=\bu$ phù hợp với Oxford-IIIT Pet, vì mỗi giống có khoảng 200 ảnh \cite{parkhi2012cats}. Với tập dữ liệu mất cân bằng, có thể thay $\bu$ bằng tần suất lớp. Hàm $\alpha(v)$ là một mô hình cho $P(S=1\mid v)$. Dạng đa thức với $k=2$ được chọn theo Soft Augmentation, vốn lấy cảm hứng từ việc khả năng nhận diện của người suy giảm phi tuyến theo mức che \cite{liu2023soft}.
+\end{remark}
+
+\subsection{Tính chất của đích VCC}
+
+\begin{proposition}
+\label{prop:props}
+Cho $\bp\in\Simplex$, $\alpha\in[0,1]$ và $\bt=\alpha\bp+(1-\alpha)\bu$. Khi đó:
+\begin{enumerate}[label=(\alph*),itemsep=2pt]
+  \item \textbf{Bảo toàn thứ tự:} $t_j-t_k=\alpha(p_j-p_k)$. Do đó thứ tự các lớp (và lớp có xác suất lớn nhất, khi $\alpha>0$) được giữ nguyên. Ngoài ra, nếu $p_j\ge p_k>0$ thì $1\le t_j/t_k\le p_j/p_k$.
+  \item \textbf{Trần độ tin cậy:} $\max_k t_k=\alpha\max_k p_k+\frac{1-\alpha}{C}\le\alpha+\frac{1-\alpha}{C}$.
+  \item \textbf{Hỗ trợ đầy đủ:} $t_k\ge\frac{1-\alpha}{C}$ với mọi $k$, tức $\bt$ có tác dụng như label smoothing khi $\alpha<1$.
+  \item \textbf{Entropy đơn điệu:} $\varphi(\alpha)=H(\alpha\bp+(1-\alpha)\bu)$ không tăng theo $\alpha$, với $\varphi(0)=\log C$ và $\varphi(1)=H(\bp)$.
+\end{enumerate}
+\end{proposition}
+\begin{proof}
+(a) Đẳng thức là hiển nhiên. Đặt $\beta=(1-\alpha)/C\ge0$. Với $p_j\ge p_k>0$:
+$\frac{\alpha p_j+\beta}{\alpha p_k+\beta}\le\frac{p_j}{p_k}\iff p_k(\alpha p_j+\beta)\le p_j(\alpha p_k+\beta)\iff\beta p_k\le\beta p_j$, luôn đúng.
+
+(b), (c) suy ra trực tiếp từ định nghĩa và $\max_k p_k\le1$, $p_k\ge0$.
+
+(d) Đặt $s=1-\alpha$ và $\psi(s)=H((1-s)\bp+s\bu)$. Vì $H$ lõm trên $\Simplex$ và đối số là hàm affine của $s$, $\psi$ lõm trên $[0,1]$. Hơn nữa $\psi(1)=\log C=\max_{\Simplex}H$. Giả sử tồn tại $0\le s_1<s_2\le1$ với $\psi(s_1)>\psi(s_2)$. Nếu $s_2=1$ thì mâu thuẫn với tính lớn nhất của $\psi(1)$. Nếu $s_2<1$, viết $s_2=\gamma s_1+(1-\gamma)\cdot1$ với $\gamma=\frac{1-s_2}{1-s_1}\in(0,1)$. Theo tính lõm,
+$\psi(s_2)\ge\gamma\psi(s_1)+(1-\gamma)\psi(1)\ge\gamma\psi(s_1)+(1-\gamma)\psi(s_1)=\psi(s_1)$, mâu thuẫn. Vậy $\psi$ không giảm theo $s$, tức $\varphi$ không tăng theo $\alpha$.
+\end{proof}
+
+Vì $\alpha(v)=1-(1-v)^k$ không giảm theo $v$, Mệnh đề~\ref{prop:props} có nghĩa là: \emph{che càng nhiều thì đích càng ít tự tin, entropy càng cao, nhưng thứ tự giữa các giống không đổi.} Từ (b), trần độ tin cậy mà VCC cho phép là
+\begin{equation}
+  \label{eq:cap}
+  \max_k t_k\;\le\;1-(1-v)^k\Big(1-\frac1C\Big).
+\end{equation}
+Với $k=2$ và $C=37$, trần này bằng $0{,}912$ khi $v=0{,}7$ và $0{,}523$ khi $v=0{,}3$.
+
+\subsection{Soft Augmentation và consistency cố định là trường hợp riêng}
+
+\begin{proposition}
+\label{prop:special}
+(a) Nếu $\alpha\equiv1$ (không che) thì $\bt=\bp$ và VCC trùng với consistency KL cố định. (b) Nếu thay $\bp$ bằng nhãn one-hot $\be_y$ thì
+\[
+  t_y=1-(1-v)^k\Big(1-\frac1C\Big),\qquad t_j=\frac{1-t_y}{C-1}\ \ (j\neq y),
+\]
+tức trùng với đích của Soft Augmentation với $p_{\min}=1/C$ \cite{liu2023soft}.
+\end{proposition}
+\begin{proof}
+(a) là hiển nhiên. (b) $t_y=\alpha+\frac{1-\alpha}{C}=1-(1-\alpha)\frac{C-1}{C}=1-(1-v)^k(1-\frac1C)$. Với $j\ne y$: $t_j=\frac{1-\alpha}{C}$ và $\frac{1-t_y}{C-1}=\frac{(1-\alpha)(C-1)/C}{C-1}=\frac{1-\alpha}{C}$.
+\end{proof}
+
+Như vậy VCC tổng quát hóa Soft Augmentation từ nhãn one-hot sang đích mềm của mô hình. Khác biệt nằm ở các lớp không phải nhãn đúng. Với Soft Augmentation, các lớp này nhận xác suất bằng nhau, nên không mang thông tin về độ giống nhau giữa các giống. Với VCC, chênh lệch $t_j-t_k=\alpha(p_j-p_k)$ được giữ lại, tức ``tri thức tối'' theo nghĩa của \cite{hinton2015distilling} không bị mất. Hình~\ref{fig:toy} minh họa điều này.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  ybar, bar width=7pt, width=0.92\linewidth, height=6.2cm,
+  ymin=0, ymax=0.9, ylabel={Xác suất},
+  symbolic x coords={Siamese,Birman,Ragdoll,34 giống khác (tổng)},
+  xtick=data, x tick label style={font=\small},
+  enlarge x limits=0.15,
+  legend style={at={(0.98,0.97)},anchor=north east,font=\scriptsize,cells={anchor=west}},
+  ymajorgrids, grid style={gray!20}
+]
+\addplot[fill=gray!60] coordinates {(Siamese,0.800) (Birman,0.150) (Ragdoll,0.040) (34 giống khác (tổng),0.010)};
+\addplot[fill=blue!35] coordinates {(Siamese,0.730) (Birman,0.139) (Ragdoll,0.039) (34 giống khác (tổng),0.092)};
+\addplot[fill=blue!75] coordinates {(Siamese,0.421) (Birman,0.090) (Ragdoll,0.034) (34 giống khác (tổng),0.455)};
+\addplot[fill=orange!70,postaction={pattern=north east lines}] coordinates {(Siamese,0.523) (Birman,0.013) (Ragdoll,0.013) (34 giống khác (tổng),0.450)};
+\legend{Đích E3 ($=\bp$), VCC che 30\%, VCC che 70\%, Soft Aug.\ che 70\%}
+\end{axis}
+\end{tikzpicture}
+\caption{\textbf{Ví dụ minh họa} (không phải kết quả thực nghiệm), với $\bp$ giả định: Siamese 0,80; Birman 0,15; Ragdoll 0,04; 34 giống còn lại tổng 0,01; $k=2$, $C=37$. Khi che 70\%, VCC hạ độ tin cậy về 0,42 nhưng vẫn giữ Birman là khả năng thứ hai. Soft Augmentation gán cho Birman cùng xác suất với mọi giống khác ($\approx0{,}013$).}
+\label{fig:toy}
+\end{figure}
+
+\subsection{Khi nào được phân rã $w=g(v)\,h(c)$}
+\label{sec:factor}
+
+Gọi $A$ là sự kiện ``ảnh bị che còn đủ thông tin'' và $B$ là sự kiện ``dự đoán trên ảnh gốc đáng tin''. Hạng consistency chỉ hữu ích khi cả $A$ và $B$ cùng xảy ra.
+
+\begin{proposition}
+\label{prop:factor}
+Giả sử $P(A\mid x,o)=g(v)$, $P(B\mid x)=h(c)$, và $A\perp B\mid(x,o)$. Khi đó $P(A\cap B\mid x,o)=g(v)\,h(c)$. Đặc biệt, nếu vật che được sinh độc lập với $(x,y)$ theo một tỷ lệ $\rho$ trên tiền cảnh, thì $v=1-\rho$ độc lập với $(x,y)$, và do đó độc lập với $c$.
+\end{proposition}
+\begin{proof}
+Theo định nghĩa của độc lập có điều kiện, $P(A\cap B\mid x,o)=P(A\mid x,o)P(B\mid x,o)=g(v)h(c)$. Phần thứ hai: $v$ chỉ phụ thuộc vào $\rho$, và $\rho$ độc lập với $(x,y)$ theo cách sinh.
+\end{proof}
+
+\begin{remark}[Khi giả thiết bị vi phạm]
+Giả thiết $A\perp B$ bị vi phạm khi \emph{vị trí} che tương tác với nội dung ảnh. Ví dụ, mô hình tự tin vì nhìn vào mặt, và vật che lại rơi đúng vào mặt. Khi đó lượng thông tin mất nhiều hơn mức $v$ phản ánh. Một khắc phục là dùng mức nhìn thấy ngữ nghĩa có trọng số Grad-CAM \cite{selvaraju2017gradcam}, theo tinh thần của SnapMix \cite{huang2021snapmix}:
+\(
+  v_{\mathrm{sem}}=\frac{\sum m\odot(1-o)\odot a}{\sum m\odot a}
+\),
+với $a$ là bản đồ kích hoạt trên ảnh gốc.
+\end{remark}
+
+\paragraph{Cường độ hiệu dụng.} Dưới Mệnh đề~\ref{prop:factor}, $\E[w]=\E[g(v)]\,\E[h(c)]<1$. Do đó $\lambda_{\mathrm{eff}}\approx\lambda\,\E[w]$ nhỏ hơn $\lambda$ danh nghĩa, và so sánh E3--E5 ở cùng $\lambda$ sẽ bị nhiễu bởi khác biệt cường độ. Hai cách khắc phục là: (i) chọn $\lambda$ riêng cho từng phương pháp trên tập validation; (ii) chuẩn hóa $\sum_i w_i D_i/\sum_i w_i$, tương tự cách Soft Augmentation chuẩn hóa trọng số trong batch \cite{liu2023soft}. Ngoài ra, vì $c$ thấp ở đầu quá trình huấn luyện, $h(c)$ tạo ra một lịch tăng dần (ramp-up) ngầm, tương tự hàm trọng số theo thời gian $w(t)$ của $\Pi$-model \cite{laine2017temporal}. Cần dùng cùng một lịch tăng dần cho mọi phương pháp để so sánh công bằng.
+
+\subsection{Phân bổ gradient giữa các mẫu}
+
+Với E3 ($\bt_i=\bp_i$, $w_i=1$), theo Bổ đề~\ref{lem:grad}, mẫu $i$ đóng góp gradient theo logits với độ lớn $\tfrac{\lambda}{B}\|\bq_i-\bp_i\|$. Ảnh bị che nặng thường có $\bq_i$ lệch xa $\bp_i$, nên đóng góp gần cận trên $\sqrt2\,\lambda/B$ và chi phối hướng cập nhật. Đây lại chính là những mẫu mà đích $\bp_i$ khó đạt nhất. Với gating, đóng góp này được nhân với $g(v_i)$ nhỏ. Với VCC, phần dư trở thành $\bq_i-\bt_i$, trong đó $\bt_i$ gần phân phối đều khi $v_i$ nhỏ. Một dự đoán không chắc chắn hợp lý trên ảnh che nặng vì vậy cho phần dư nhỏ, thay vì bị phạt.
+
+\section{Thiết kế thực nghiệm}
+\label{sec:exp}
+
+\paragraph{Dữ liệu.} Oxford-IIIT Pet gồm 7.349 ảnh thuộc 37 giống (12 mèo, 25 chó), với khoảng 200 ảnh mỗi giống và trimap phân đoạn gồm tiền cảnh, nền và vùng mơ hồ \cite{parkhi2012cats}. Chúng tôi dùng phân chia chính thức: 3.680 ảnh trainval, chia tiếp 80/20 theo lớp thành train và validation, và 3.669 ảnh test. Tiền cảnh lấy giá trị trimap 1; phương án gộp cả vùng biên (giá trị 3) được thử như một ablation.
+
+\paragraph{Sinh che khuất.} Khi huấn luyện, vật che (hình chữ nhật hoặc vết không đều, tô xám, nhiễu hoặc kết cấu lấy từ nền ảnh khác) được thêm dần cho đến khi tỷ lệ che trên tiền cảnh đạt $\rho\sim\mathcal{U}[0;0{,}8]$; $v$ được tính chính xác từ mask. Khi kiểm tra, các tập test bị che được sinh với hạt giống cố định tại $\rho\in\{0;0{,}1;0{,}3;0{,}5;0{,}7\}$.
+
+\paragraph{Mô hình và huấn luyện.} ResNet18 \cite{he2016deep} được tiền huấn luyện trên ImageNet \cite{russakovsky2015imagenet}; việc fine-tune trên Pets đã được nghiên cứu bởi \cite{kornblith2019better}. Mô hình được cài đặt bằng PyTorch \cite{paszke2019pytorch} và tối ưu bằng AdamW \cite{loshchilov2019decoupled}, với ảnh $224\times224$ và batch 64 ảnh gốc cộng 64 ảnh che. BatchNorm dùng chung cho hai nhánh; tách BN \cite{xie2020advprop,merchant2020split} là ablation phụ. Siêu tham số chọn trên validation: $\lambda\in\{0{,}5;1;2;4\}$, $k\in\{1;2;3\}$, và tham số cổng. Mỗi cấu hình chạy 3 hạt giống; báo cáo trung bình $\pm$ độ lệch chuẩn.
+
+\paragraph{Các thí nghiệm.} Bảng~\ref{tab:exps} liệt kê các thí nghiệm. Ablation gồm: hàm $D\in\{\KL,\mathrm{JS},\mathrm{MSE}\}$; $h\in\{1,\,p_y,\,\max_k p_k\}$; tích so với $\min$ để kết hợp cổng; và chuẩn hóa trọng số.
+
+\begin{table}[t]
+\centering
+\caption{Các thí nghiệm dự kiến. Mọi thí nghiệm dùng chung backbone, dữ liệu và lịch huấn luyện.}
+\label{tab:exps}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Mã & Phương pháp & Câu hỏi kiểm chứng \\
+\midrule
+E0 & ResNet18 + CE & Mức cơ sở \\
+E1 & + Random Erasing \cite{zhong2020random} & Tăng cường thông thường \\
+E2 & + che theo tiền cảnh & Che đúng vùng đối tượng \\
+E3 & + consistency KL cố định & Consistency thông thường \\
+E4 & + visibility-gating & Hiệu quả của $g(v)$ \\
+E5 & + visibility + confidence gating & Hiệu quả của $g(v)h(c)$ \\
+E6 & \textbf{VCC} & Đổi đích có tốt hơn giảm trọng số? \\
+E6-SA & Soft Aug.\ với $v$ từ mask, không consistency & Giữ thứ tự giữa các lớp có quan trọng? \\
+E6-T & VCC dùng nhiệt độ thay cho trộn đều & Cách làm mềm nào phù hợp? \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Độ đo.} Các độ đo gồm Top-1, Top-5, Macro-F1 \cite{sokolova2009systematic}, ECE với 15 khoảng \cite{guo2017calibration}, $\mathrm{AUC}_{\mathrm{occ}}$ (diện tích dưới đường accuracy theo $\rho$, chuẩn hóa về $[0,1]$), và độ suy giảm tương đối theo kiểu \cite{hendrycks2019benchmarking}:
+\(
+  \mathrm{RD}(\rho)=\frac{\mathrm{Err}_f(\rho)-\mathrm{Err}_f(0)}{\mathrm{Err}_{\mathrm{E0}}(\rho)-\mathrm{Err}_{\mathrm{E0}}(0)}
+\).
+Chi phí huấn luyện được báo bằng thời gian mỗi epoch và bộ nhớ GPU. Phân tích định tính dùng Grad-CAM \cite{selvaraju2017gradcam}.
+
+\paragraph{Giả thuyết.} Các giả thuyết cần kiểm chứng (chưa được xác nhận):
+\begin{enumerate}[label=\textbf{H\arabic*},itemsep=1pt]
+  \item E4/E5 giảm $\mathrm{RD}$ so với E3 ở mức che vừa ($\rho\in[0{,}3;0{,}5]$).
+  \item E6 có ECE thấp nhất trên các tập test che nặng ($\rho\ge0{,}5$), phù hợp với Mệnh đề~\ref{prop:bayes}.
+  \item E6 có Top-5 cao hơn E6-SA khi che nặng, nhờ bảo toàn thứ tự (Mệnh đề~\ref{prop:props}(a)).
+  \item Mọi phương pháp giữ Top-1 trên ảnh sạch trong phạm vi 1 điểm phần trăm so với E0.
+\end{enumerate}
+
+\section{Kết quả}
+\label{sec:results}
+
+\noindent\fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\small\textbf{Lưu ý:} Các thí nghiệm chưa được thực hiện. Mọi ô trong Bảng~\ref{tab:results} được để trống (---) và sẽ được điền sau khi chạy thực nghiệm. Không có con số nào trong bản thảo này là kết quả đo được.}}
+
+\begin{table}[h]
+\centering
+\caption{Kết quả trên tập test Oxford-IIIT Pet (trung bình $\pm$ độ lệch chuẩn qua 3 hạt giống). \emph{Chưa có số liệu.}}
+\label{tab:results}
+\small
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+& \multicolumn{3}{c}{Top-1 (\%) theo mức che $\rho$} & & & \\
+\cmidrule(lr){2-4}
+Mã & $0$ & $0{,}3$ & $0{,}7$ & $\mathrm{AUC}_{\mathrm{occ}}$ & ECE ($\rho\!=\!0{,}7$) & Top-5 ($\rho\!=\!0{,}7$) \\
+\midrule
+E0 & --- & --- & --- & --- & --- & --- \\
+E1 & --- & --- & --- & --- & --- & --- \\
+E2 & --- & --- & --- & --- & --- & --- \\
+E3 & --- & --- & --- & --- & --- & --- \\
+E4 & --- & --- & --- & --- & --- & --- \\
+E5 & --- & --- & --- & --- & --- & --- \\
+E6 (VCC) & --- & --- & --- & --- & --- & --- \\
+E6-SA & --- & --- & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Thảo luận và hạn chế}
+\label{sec:discussion}
+
+\paragraph{Tỷ lệ pixel không bằng tỷ lệ thông tin.} Che 30\% ở mặt khác hẳn che 30\% ở đuôi. Vì vậy $v$ chỉ là một ước lượng thô cho $P(S=1)$ trong Giả thiết~\ref{ass:sufficiency}. Mức nhìn thấy ngữ nghĩa $v_{\mathrm{sem}}$ (Mục~\ref{sec:factor}), hoặc mức nhìn thấy riêng của vùng đầu (bộ dữ liệu có sẵn bounding box đầu \cite{parkhi2012cats}), là hướng cải tiến trực tiếp.
+
+\paragraph{Độ tin cậy của mô hình thầy.} Đích VCC kế thừa sai số hiệu chỉnh của $\bp$; mạng sâu hiện đại thường hiệu chỉnh kém \cite{guo2017calibration}. Trọng số $h(c)=p_y$ giảm lan truyền đích sai, nhưng không sửa được việc $\bp$ quá tự tin. Có thể áp temperature scaling cho $\bp$ trước khi trộn.
+
+\paragraph{Tương tác với các tăng cường khác.} Siedel và cộng sự nhận thấy lợi ích của làm mềm thích nghi biến mất khi kết hợp nhiều loại tăng cường \cite{siedel2026combined}. Vì vậy cần kiểm tra lại các kết luận khi dùng pipeline tăng cường đa dạng hơn.
+
+\paragraph{Chi phí.} Mỗi bước truyền $2B$ ảnh, nên chi phí tính toán xấp xỉ gấp đôi E0--E2. Điều này cần được báo cáo minh bạch.
+
+\paragraph{Giả thiết đơn giản hóa.} Mô hình ``đủ hoặc mất thông tin'' là một xấp xỉ nhị phân của một quá trình liên tục. Phân phối tiên nghiệm đều chỉ phù hợp với dữ liệu cân bằng.
+
+\section{Kết luận}
+
+Chúng tôi đã đặt các phương pháp consistency vào một khung trọng số--đích thống nhất và phân biệt hai cách xử lý ảnh bị che nặng. Visibility-gating chỉ giảm tốc độ kéo về đích, không đổi điểm tối ưu. Visibility-Calibrated Consistency thay đích bằng hậu nghiệm Bayes dưới mô hình ``đủ hoặc mất thông tin''. Các tính chất bảo toàn thứ tự, trần độ tin cậy và entropy đơn điệu cho thấy VCC phù hợp với đặc thù của FGVC. Bước tiếp theo là thực hiện giao thức ở Mục~\ref{sec:exp} để kiểm chứng các giả thuyết H1--H4.
+
+\bibliographystyle{ieeetr}
+\bibliography{refs}
+
+\end{document}
